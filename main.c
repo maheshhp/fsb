@@ -1,7 +1,7 @@
 /* This Kernel Module was started by Kaushik N S Iyer (@KaushikIyer16) on 14th-Aug-2016
    named fsbuilder for providing the power to the user to build directory structures
    with the help of a single command. The algorithm used in the process is based on
-   the 'first child next parent' tree - data structure.
+   the 'first child next sibling' tree - data structure.
 */
 #include "stdio.h"
 #include "stdlib.h"
@@ -11,7 +11,7 @@
 #include "sys/stat.h"
 #include "unistd.h"
 
-static int fileCount = 0, typeIsSet = 0, TOTAL_SUPPORTED_FORMATS=18;
+static int fileCount = 0, typeIsSet = 0, TOTAL_SUPPORTED_FORMATS = 19;
 
 typedef struct{
   char extension[5];
@@ -29,7 +29,7 @@ file_map extensions[]=
                   {"-c"  , ".c"    },
                   {"-cp" , ".cpp"  },
                   {"-js" , ".js"   },
-                  {"-css" , ".css" },
+                  {"-cs" , ".css" },
                   {"-s"  , ".scala"},
                   {"-r"  , ".r"    },
                   {"-py" , ".py"   },
@@ -42,17 +42,8 @@ file_map extensions[]=
                   {"-sc" , ".scss" },
                   {"-t"  , ".txt"  },
                   {"-jo" , ".json" },
-                  {"-cs" , ".cs"   }
+                  {"-sp" , ".cs"   }
             };
-
-int containsMinus(const char *argument) {
-   if(argument[0] == '-') {
-      return 1;
-   }
-   else {
-      return 0;
-   }
-}
 
 int isDir(const char *argument){
   if(argument[1] == 'd') {
@@ -71,9 +62,41 @@ int isHelp(const char *argument) {
   }
 }
 
+int isMultipleExtension(const char *argument){
+  int extensionCount = 0;
+  for (int i = 0; argument[i] != '\0'; i++) {
+    if(argument[i] == '-' && isalnum(argument[i+1])){
+      extensionCount++;
+    }
+    if (extensionCount > 1) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+int isValidExtension(const char *argument){
+  int i = 0;
+  for (i = 0; i < TOTAL_SUPPORTED_FORMATS; i++) {
+    if(!strcmp(argument,extensions[i].extension)){
+      return 1;
+    }
+  }
+  return 0;
+}
+
+int containsMinus(const char *argument) {
+   if(argument[0] == '-') {
+      return 1;
+   }
+   else {
+      return 0;
+   }
+}
+
 void printHelp() {
   // Under construction
-  printf("\nWelcome to File System Builder (F.S.B)\n");
+  printf("\nWelcome to File System Builder (F.S.B.)\n");
 
   printf("\nUsage : [arg1 arg2]*\n");
 
@@ -85,16 +108,70 @@ void printHelp() {
   printf("\nIn order to build a directory use the -d option.\n");
 
   printf("\nSome special characters used to build the file system or the directory structure are:\n" );
-  printf(" / -> Move to a child directory with the name as that of the previous argument\n" );
-  printf(" ^ -> Move to the parent directory of the current directory\n" );
+  printf("\n / -> Move to a child directory with the name as that of the previous argument\n" );
+  printf("\n ^ -> Move to the parent directory of the current directory\n" );
+  //-----
+  //Needs some serious rework to change to the current command format and explain all features
+  //-----
+}
 
-  // Under construction
+char* getExtensionFromArgument(const char *argument){
+  int i = 0;
+  for (i = 0; i < TOTAL_SUPPORTED_FORMATS; i++) {
+    if(!strcmp(argument,extensions[i].extension)){
+      return extensions[i].format;
+    }
+  }
+  return " "; // resolve
+}
+
+void getMultipleExtensionFromArgument(const char *argument, char *dst){
+
+  int location = 0, currentLocation = 0;
+  char returnFormat[' '], currentFormat[' '];
+
+  returnFormat[0] = '\0';
+  currentFormat[0] = '\0';
+
+  while(argument[location] != '\0'){
+      if (argument[location] == '-') {
+        if(currentLocation != 0 && isValidExtension(currentFormat)){
+          strcat(returnFormat,getExtensionFromArgument(currentFormat));
+          returnFormat[strlen(returnFormat)] = '\0';
+        }
+        else{
+          //Do nothing
+        }
+        currentFormat[0] = '-';
+        currentLocation =1 ;
+      }
+      else{
+        currentFormat[currentLocation++] = argument[location];
+        currentFormat[currentLocation] = '\0';
+      }
+      location++;
+  }
+  strcat(returnFormat,getExtensionFromArgument(currentFormat));
+  strcpy(dst,returnFormat);
+}
+
+int createFiles(char *files[]){
+  int numOfFiles = sizeof(files) / sizeof(files[0]);
+  FILE *fp;
+  for (int i = 0; i < numOfFiles; i++) {
+    fp = fopen(files[i], "w");
+    if(fp == NULL){
+      return 0;
+    }
+    fclose(fp);
+  }
+  return 1;
 }
 
 int buildFileSystem(int argc, const char *argv[]) {
 
   char current_format[' '], current_directory[' '];
-  int i=0;
+  int i = 0;
   int required_formats[' '];
 
   strcpy(current_format,"");
@@ -102,10 +179,13 @@ int buildFileSystem(int argc, const char *argv[]) {
   for (i = 1; i < argc; i++) {
     if (containsMinus(argv[i])) {
       if (isHelp(argv[i])) {
-        printHelp();
+        printHelp(); //Printing the manual
       }
       else if (isDir(argv[i])) {
-        strcpy(current_format,"");
+        strcpy(current_format,""); //Adding a directory to the tree
+      }
+      else if (isMultipleExtension(argv[i])) {
+        getMultipleExtensionFromArgument(argv[i],current_format);
       }
       else {
         // Under construction
@@ -118,6 +198,7 @@ int buildFileSystem(int argc, const char *argv[]) {
   return 0;
 }
 
+
 int main(int argc, const char *argv[]) {
 
   if(argc <= 1){
@@ -127,5 +208,9 @@ int main(int argc, const char *argv[]) {
 
   int execCode = buildFileSystem(argc, argv);
 
+  FILE *fd;
+  fd = fopen("./foo.txt", "w");
+  printf("%d\n", fd);
+  fclose(fd);
   return execCode;
 }
