@@ -173,7 +173,7 @@ int createDirectory(char *folders[]){
   int numOfDirectories = sizeof(folders) / sizeof(folders[0]);
   int dirStatus = -1; //Coz 0 denotes success in  case of mkdir
   for (int i = 0; i < numOfDirectories; i++) {
-    dirStatus = mkdir(folders[i], "S_IRWXG");
+    dirStatus = mkdir(folders[i], S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
     if (dirStatus != 0) {
       return 0;
     }
