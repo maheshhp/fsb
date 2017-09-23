@@ -154,7 +154,7 @@ void getMultipleExtensionFromArgument(const char *argument, char *dst){
   strcat(returnFormat,getExtensionFromArgument(currentFormat));
   strcpy(dst,returnFormat);
 }
-
+//Execution testing pending
 int createFiles(char *files[]){
   int numOfFiles = sizeof(files) / sizeof(files[0]);
   FILE *fp;
@@ -164,6 +164,20 @@ int createFiles(char *files[]){
       return 0;
     }
     fclose(fp);
+    fp = NULL;
+  }
+  return 1;
+}
+//Execution testing pending
+int createDirectory(char *folders[]){
+  int numOfDirectories = sizeof(folders) / sizeof(folders[0]);
+  int dirStatus = -1; //Coz 0 denotes success in  case of mkdir
+  for (int i = 0; i < numOfDirectories; i++) {
+    dirStatus = mkdir(folders[i], "S_IRWXG");
+    if (dirStatus != 0) {
+      return 0;
+    }
+    dirStatus = -1;
   }
   return 1;
 }
