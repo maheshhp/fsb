@@ -1,7 +1,8 @@
 /* This Kernel Module was started by Kaushik N S Iyer (@KaushikIyer16) on 14th-Aug-2016
    named fsbuilder for providing the power to the user to build directory structures
    with the help of a single command. The module can be used as a secure API for file
-   creation and management by applications.
+   creation and management by applications. The module can also be used as a command
+   based tool for file system building by users.
 
    The file system can be easily built by level order traversal of the tree -
    a 'first child next sibling' tree - data structure.
@@ -14,7 +15,7 @@
 #include "sys/stat.h"
 #include "unistd.h"
 
-static int fileCount = 0, typeIsSet = 0, TOTAL_SUPPORTED_FORMATS = 19;
+static int fileCount = 0, typeIsSet = 0, TOTAL_SUPPORTED_FORMATS = 19, isVerbose = 0;
 
 struct file_tree{
   char name[' '];
@@ -93,6 +94,15 @@ int isValidExtension(const char *argument){
     }
   }
   return 0;
+}
+
+int containsDoubleMinus(const char *argument){
+   if(argument[0] == '-' && argument[1] == '-') {
+      return 1;
+   }
+   else {
+      return 0;
+   }
 }
 
 int containsMinus(const char *argument){
@@ -293,11 +303,16 @@ int parseBuildCommand(int argc, const char *argv[]) {
   strcpy(current_format,"");
 
   for (i = 1; i < argc; i++) {
-    if (containsMinus(argv[i])) {
+    if (containsDoubleMinus(argv[i])) {
       if (isHelp(argv[i])) {
         printHelp(); //Printing the manual
       }
-      else if (isDir(argv[i])) {
+      if (strcmp(argv[i], "--v")) {
+        isVerbose = 1;
+      }
+    }
+    else if (containsMinus(argv[i])) {
+      if (isDir(argv[i])) {
         strcpy(current_format,"/"); //Adding a directory to the tree
       }
       else if (isMultipleExtension(argv[i])) {
@@ -318,6 +333,19 @@ int parseBuildCommand(int argc, const char *argv[]) {
     else {
       // Under construction
       //Put node creation code here
+      char *a = argv[i];
+      int isFile = 0;
+      for (int i = 0; i < strlen(argv[i]); i++) {
+        if (a[i] == '.') {
+          printf("Filename with extension...\n", );
+          isFile = 1;
+          break;
+        }
+      }
+      if (isFile == 0) {
+        build_tree = addChild();
+
+      }
     }
   }
   return 0;
