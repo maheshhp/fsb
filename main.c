@@ -5,7 +5,7 @@
    based tool for file system building by users.
 
    The file system can be easily built by level order traversal of the tree -
-   a 'first child next sibling' tree - data structure.
+   a 'n-ary tree' - data structure.
 */
 #include "stdio.h"
 #include "stdlib.h"
@@ -15,24 +15,23 @@
 #include "sys/stat.h"
 #include "unistd.h"
 
-static int fileCount = 0, typeIsSet = 0, TOTAL_SUPPORTED_FORMATS = 19, isVerbose = 0;
+static int gFileCount = 0, gTypeIsSet = 0, G_TOTAL_SUPPORTED_FORMATS = 19, gIsVerbose = 0;
 
-struct file_tree{
+struct fileTree{
   char name[' '];
   char ext[12];
-  struct file_tree *child;
-  struct file_tree *sibling;
+  struct fileTree **next;
 };
 
 typedef struct{
   char extension[5];
   char format[' '];
-}file_map;
+}fileMap;
 
 /* The file formats are mapped to a shortened string, allowing for shorter commands.
 The same map will be used for creating files with multiple extensions.*/
 
-file_map extensions[]=
+fileMap extensions[]=
             {
                   {"-p"  , ".php"  },
                   {"-ht" , ".html" },
@@ -57,7 +56,7 @@ file_map extensions[]=
             };
 
 int isDir(const char *argument){
-  if(argument[1] == 'd') {
+  if(argument[1] == 'd' && argument[0] == '-') {
     return 1;
   }
   else {
@@ -88,7 +87,7 @@ int isMultipleExtension(const char *argument){
 
 int isValidExtension(const char *argument){
   int i = 0;
-  for (i = 0; i < TOTAL_SUPPORTED_FORMATS; i++) {
+  for (i = 0; i < G_TOTAL_SUPPORTED_FORMATS; i++) {
     if(!strcmp(argument,extensions[i].extension)){
       return 1;
     }
@@ -114,16 +113,27 @@ int containsMinus(const char *argument){
    }
 }
 
-int containsUp(const char *argument){
+int isRollUp(const char *argument){
   if (argument[0] == '^') {
     return 1;
   }
   return 0;
 }
 
-int containsDown(const char *argument){
+int isDrillDown(const char *argument){
   if (argument[0] == '/') {
     return 1;
+  }
+  return 0;
+}
+
+int containsFormat(const char* argument){
+  int length = 0, i = 0;
+  length = strlen(argument);
+  for (i = 0; i < length; i++) {
+    if (argument[i] == '.') {
+      return 1;
+    }
   }
   return 0;
 }
@@ -135,7 +145,7 @@ void printHelp() {
   printf("\nUsage : [arg1 arg2]*\n");
 
   printf("\nSUPPORTED FILE FORMATS:\n");
-  for (int i = 0; i < TOTAL_SUPPORTED_FORMATS; i++) {
+  for (int i = 0; i < G_TOTAL_SUPPORTED_FORMATS; i++) {
     printf("%5s ---------- %s\n", extensions[i].extension, extensions[i].format);
   }
 
@@ -151,12 +161,12 @@ void printHelp() {
 
 char* getExtensionFromArgument(const char *argument){
   int i = 0;
-  for (i = 0; i < TOTAL_SUPPORTED_FORMATS; i++) {
+  for (i = 0; i < G_TOTAL_SUPPORTED_FORMATS; i++) {
     if(!strcmp(argument,extensions[i].extension)){
       return extensions[i].format;
     }
   }
-  return " "; // resolve -- Not used!
+  return ""; // resolve -- Not used!
 }
 
 void getMultipleExtensionFromArgument(const char *argument, char *dst){
@@ -189,83 +199,57 @@ void getMultipleExtensionFromArgument(const char *argument, char *dst){
   strcpy(dst,returnFormat);
 }
 
-struct file_tree* getNode(const char *file_name, const char *file_ext){
-  struct file_tree *temp;
-  temp = (struct file_tree*)malloc(sizeof(struct file_tree));
-  temp->child = NULL;
-  temp->sibling = NULL;
-  strcpy(temp->name, file_name);
-  strcpy(temp->ext, file_ext);
+void separateFileNameAndArgument(const char* argument, char* fileName, char* fileFormat){
+  int i=0, j=0;
+  char tempFormat[' '];
+  while (argument[i] != '.') {
+    fileName[i] = argument[i];
+    i++;
+  }
+  i++;
+  while (i < strlen(argument)) {
+    fileFormat[j++] = argument[i++];
+  }
+}
+
+struct fileTree* getNode(const char *fileName, const char *fileExt){
+  struct fileTree *temp;
+  temp = (struct fileTree*)malloc(sizeof(struct fileTree));
+  temp->next = NULL;
+  strcpy(temp->name, fileName);
+  strcpy(temp->ext, fileExt);
   return temp;
 }
 
-struct file_tree* addSibling(struct file_tree* node, const char *file_name, const char *file_ext){
-  if (node == NULL) {
-    return NULL;
-  }
-  while (node->sibling != NULL) {
-    node = node->sibling;
-  }
-  return getNode(file_name, file_ext);
-}
-
-struct file_tree* addChild(struct file_tree* node, const char *file_name, const char *file_ext){
-  if (node == NULL) {
-    return NULL;
-  }
-  else if (node->child != NULL) {
-    return addSibling(node->child, file_name, file_ext);
+struct fileTree* addChild(struct fileTree* node, const char *fileName, const char *fileExt){
+  struct fileTree *temp;
+  temp = node;
+  if (temp == NULL) {
+    temp = getNode(fileName, fileExt);
   }
   else{
-    return getNode(file_name, file_ext);
+    if (temp->next == NULL) {
+      temp->next[0] = getNode(fileName, fileExt);
+    }
+    else{
+      int i = 0;
+      while (temp->next[i] != NULL) {
+        i++;
+      }
+      temp->next[i] = getNode(fileName, fileExt);
+    }
   }
+  return temp;
 }
 
-void printFileSystem(struct file_tree* node){
-  if (node == NULL) {
-    return;
-  }
-  while (node != NULL) {
-    printf("%s.%s ", node->name, node->ext);
-    if (node->child != NULL) {
-      printf("\n|__");
-      printFileSystem(node->child);
-    }
-    node = node->sibling;
-  }
-}
-//Will be mostly removed in final build
-int createFiles(char *files[]){
-  int numOfFiles = sizeof(files) / sizeof(files[0]);
-  FILE *fp;
-  for (int i = 0; i < numOfFiles; i++) {
-    fp = fopen(files[i], "w");
-    if(fp == NULL){
-      return 0;
-    }
-    fclose(fp);
-    fp = NULL;
-  }
-  return 1;
-}
-//Will be mostly removed in final build
-int createDirectories(char *folders[]){
-  int numOfDirectories = sizeof(folders) / sizeof(folders[0]);
-  int dirStatus = -1; //Coz 0 denotes success in case of mkdir
-  for (int i = 0; i < numOfDirectories; i++) {
-    dirStatus = mkdir(folders[i], S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
-    if (dirStatus != 0) {
-      return 0;
-    }
-    dirStatus = -1;
-  }
-  return 1;
+void printFileSystem(struct fileTree* node){
+  //Under construction
 }
 
-int createFile(const char *file_name, const char *file_ext, const char *context_path){
+int createFile(const char *fileName, const char *fileExt, const char *contextPath){
   FILE *fp;
   char *temp;
-  asprintf(&temp, "%s/%s.%s", context_path, file_name, file_ext);
+  asprintf(&temp, "%s/%s.%s", contextPath, fileName, fileExt);
   fp = fopen(temp, "w");
   free(temp);
   if(fp == NULL){
@@ -276,10 +260,10 @@ int createFile(const char *file_name, const char *file_ext, const char *context_
   return 1;
 }
 
-int createDirectory(char *folder_name, const char *context_path){
+int createDirectory(char *folderName, const char *contextPath){
   int dirStatus = -1; //Coz 0 denotes success in case of mkdir
   char *temp;
-  asprintf(&temp, "%s/%s", context_path, folder_name);
+  asprintf(&temp, "%s/%s", contextPath, folderName);
   dirStatus = mkdir(temp, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
   free(temp);
   if (dirStatus != 0) {
@@ -289,65 +273,93 @@ int createDirectory(char *folder_name, const char *context_path){
   return 1;
 }
 
-int createFileSystem(struct file_tree* node){
+int createFileSystem(struct fileTree* node){
   //Under construction
   return 1;
 }
 
 int parseBuildCommand(int argc, const char *argv[]) {
-  char current_format[' '], current_directory[' '];
+  char currentFormat[' '], currentDirectory[' '];
   int i = 0;
-  int required_formats[' '];
-  struct file_tree *build_tree;
+  struct fileTree *buildTree;
 
-  strcpy(current_format,"");
+  strcpy(currentFormat,"");
+  strcpy(currentDirectory, "");
 
   for (i = 1; i < argc; i++) {
     if (containsDoubleMinus(argv[i])) {
+      printf("Coming to contains double minus\n");
       if (isHelp(argv[i])) {
         printHelp(); //Printing the manual
       }
       if (strcmp(argv[i], "--v")) {
-        isVerbose = 1;
+        gIsVerbose = 1;
       }
     }
     else if (containsMinus(argv[i])) {
+      printf("Coming to contains minus\n");
       if (isDir(argv[i])) {
-        strcpy(current_format,"/"); //Adding a directory to the tree
+        strcpy(currentFormat,""); //Adding a directory to the tree
       }
       else if (isMultipleExtension(argv[i])) {
-        getMultipleExtensionFromArgument(argv[i],current_format);
+        getMultipleExtensionFromArgument(argv[i],currentFormat);
       }
       else {
-        // Under construction
+        strcpy(currentFormat, getExtensionFromArgument(argv[i]));
       }
     }
-    else if(containsUp(argv[i])){
+    else if(isRollUp(argv[i])){
+      printf("Coming to rollup\n");
       // Under construction
       //Put navigating to the previous node in the tree
     }
-    else if(containsDown(argv[i])){
+    else if(isDrillDown(argv[i])){
+      printf("Coming to drilldown\n");
       // Under construction
       //Put navigating to the next node in the tree
     }
-    else {
-      // Under construction
-      //Put node creation code here
-      char *a = argv[i];
-      int isFile = 0;
-      for (int i = 0; i < strlen(argv[i]); i++) {
-        if (a[i] == '.') {
-          printf("Filename with extension...\n", );
-          isFile = 1;
-          break;
+    else if(strcmp(currentFormat, "") == 0 && !(containsFormat(argv[i]))){
+      printf("Coming to create dir\n");
+      if (i>0 && (isDrillDown(argv[i-1]) || isRollUp(argv[i-1]) || isDir(argv[i-1])) ) {
+        if (strcmp(currentDirectory, "") == 0) {
+          strcpy(currentDirectory, argv[i]);
+        }
+        else{
+          strcat(currentDirectory, argv[i]);
         }
       }
-      if (isFile == 0) {
-        build_tree = addChild();
-
+      else {
+        //currentDirectory = RollUpDirectory(currentDirectory); -- Implement!!
+        if (strcmp(currentDirectory, "") == 0) {
+          strcpy(currentDirectory, argv[i]);
+        }
+        else{
+          strcat(currentDirectory, argv[i]);
+        }
       }
+      printf("Adding this to the tree --> %s\n", currentDirectory);
+      addChild(buildTree, currentDirectory, currentFormat);
+    }
+    else {
+      printf("Coming to create file\n");
+      char tempPath[' '], tempFileName[' '], tempFormat[' '];
+      strcpy(tempPath, currentDirectory);
+      separateFileNameAndArgument(argv[i], tempFileName, tempFormat);
+      printf("Adding this to the tree --> %s, %s\n", tempFileName, tempFormat);
+      strcat(tempPath, tempFileName);
+      addChild(buildTree, tempPath, tempFormat);
     }
   }
+  printFileSystem(buildTree);
+  //printf("Continue with file system building?(y, n)\n");
+  //char userAnswer;
+  //scanf("%c\n", &userAnswer);
+  // if (userAnswer == 'y') {
+  //   createFileSystem(buildTree);
+  // }
+  // else{
+  //   return -1;
+  // }
   return 0;
 }
 
