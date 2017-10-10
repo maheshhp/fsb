@@ -1,8 +1,10 @@
 /* This Kernel Module was started by Kaushik N S Iyer (@KaushikIyer16) on 14th-Aug-2016
    named fsbuilder for providing the power to the user to build directory structures
    with the help of a single command. The module can be used as a secure API for file
-   creation and management by applications. The module can also be used as a command
-   based tool for file system building by users.
+   creation and management by applications and also as a command based tool for file
+   system building by users.
+
+   The module is being built and improved by Mahesh H P (@maheshhp).
 
    The file system can be easily built by level order traversal of the tree -
    a 'n-ary tree' - data structure.
@@ -288,7 +290,7 @@ int parseBuildCommand(int argc, const char *argv[]) {
 
   for (i = 1; i < argc; i++) {
     if (containsDoubleMinus(argv[i])) {
-      printf("Coming to contains double minus\n");
+      printf("Coming to contains double minus\n"); //For debug
       if (isHelp(argv[i])) {
         printHelp(); //Printing the manual
       }
@@ -297,7 +299,7 @@ int parseBuildCommand(int argc, const char *argv[]) {
       }
     }
     else if (containsMinus(argv[i])) {
-      printf("Coming to contains minus\n");
+      printf("Coming to contains minus\n"); //For debug
       if (isDir(argv[i])) {
         strcpy(currentFormat,""); //Adding a directory to the tree
       }
@@ -309,17 +311,17 @@ int parseBuildCommand(int argc, const char *argv[]) {
       }
     }
     else if(isRollUp(argv[i])){
-      printf("Coming to rollup\n");
+      printf("Coming to rollup\n"); //For debug
       // Under construction
       //Put navigating to the previous node in the tree
     }
     else if(isDrillDown(argv[i])){
-      printf("Coming to drilldown\n");
+      printf("Coming to drilldown\n"); //For debug
       // Under construction
       //Put navigating to the next node in the tree
     }
     else if(strcmp(currentFormat, "") == 0 && !(containsFormat(argv[i]))){
-      printf("Coming to create dir\n");
+      printf("Coming to create dir\n"); //For debug
       if (i>0 && (isDrillDown(argv[i-1]) || isRollUp(argv[i-1]) || isDir(argv[i-1])) ) {
         if (strcmp(currentDirectory, "") == 0) {
           strcpy(currentDirectory, argv[i]);
@@ -337,15 +339,15 @@ int parseBuildCommand(int argc, const char *argv[]) {
           strcat(currentDirectory, argv[i]);
         }
       }
-      printf("Adding this to the tree --> %s\n", currentDirectory);
+      printf("Adding this to the tree --> %s\n", currentDirectory); //For debug
       addChild(buildTree, currentDirectory, currentFormat);
     }
     else {
-      printf("Coming to create file\n");
+      printf("Coming to create file\n"); //For debug
       char tempPath[' '], tempFileName[' '], tempFormat[' '];
       strcpy(tempPath, currentDirectory);
       separateFileNameAndArgument(argv[i], tempFileName, tempFormat);
-      printf("Adding this to the tree --> %s, %s\n", tempFileName, tempFormat);
+      printf("Adding this to the tree --> %s, %s\n", tempFileName, tempFormat); //For debug
       strcat(tempPath, tempFileName);
       addChild(buildTree, tempPath, tempFormat);
     }
