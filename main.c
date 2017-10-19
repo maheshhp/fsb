@@ -201,7 +201,7 @@ void getMultipleExtensionFromArgument(const char *argument, char *dst){
   strcpy(dst,returnFormat);
 }
 
-void separateFileNameAndArgument(const char* argument, char* fileName, char* fileFormat){
+void separateFileNameAndFormat(const char* argument, char* fileName, char* fileFormat){
   int i=0, j=0;
   char tempFormat[' '];
   while (argument[i] != '.') {
@@ -244,9 +244,7 @@ struct fileTree* addChild(struct fileTree* node, const char *fileName, const cha
   return temp;
 }
 
-void printFileSystem(struct fileTree* node){
-  //Under construction
-}
+
 
 int createFile(const char *fileName, const char *fileExt, const char *contextPath){
   FILE *fp;
@@ -275,9 +273,58 @@ int createDirectory(char *folderName, const char *contextPath){
   return 1;
 }
 
+int writeTemplateToFile(const char *filePath, const char *templateExt){
+  FILE *newFile, *tempFile;
+  char *temp, ch;
+  asprintf(&temp, "%s_template.txt", templateExt);
+  tempFile = fopen(temp, "r");
+  free(temp);
+  newFile = fopen(filePath, "w");
+  if(newFile == NULL || tempFile == NULL){
+    if (tempFile != NULL) {
+      fclose(tempFile);
+    }
+    if (newFile != NULL) {
+      fclose(newFile);
+    }
+    return 0;
+  }
+  ch = fgetc(tempFile);
+  while (ch != EOF) {
+    fputc(ch, newFile);
+    ch = fgetc(tempFile);
+  }
+  fclose(tempFile);
+  fclose(newFile);
+  return 1;
+}
+
+int injectFileTemplate(struct fileTree* node){
+  //Under construction
+  return 1;
+}
+
 int createFileSystem(struct fileTree* node){
   //Under construction
   return 1;
+}
+
+int printFileSystem(struct fileTree* tree){
+  //Under construction
+  if (gIsVerbose == 1) {
+    printf("Continue with file system building?(y, n)\n");
+    char userAnswer;
+    scanf("%c\n", &userAnswer);
+    if (userAnswer == 'y') {
+      return createFileSystem(tree);
+    }
+    else{
+      return -1;
+    }
+  }
+  else{
+    return createFileSystem(tree);
+  }
 }
 
 int parseBuildCommand(int argc, const char *argv[]) {
@@ -346,22 +393,13 @@ int parseBuildCommand(int argc, const char *argv[]) {
       printf("Coming to create file\n"); //For debug
       char tempPath[' '], tempFileName[' '], tempFormat[' '];
       strcpy(tempPath, currentDirectory);
-      separateFileNameAndArgument(argv[i], tempFileName, tempFormat);
+      separateFileNameAndFormat(argv[i], tempFileName, tempFormat);
       printf("Adding this to the tree --> %s, %s\n", tempFileName, tempFormat); //For debug
       strcat(tempPath, tempFileName);
       addChild(buildTree, tempPath, tempFormat);
     }
   }
-  printFileSystem(buildTree);
-  //printf("Continue with file system building?(y, n)\n");
-  //char userAnswer;
-  //scanf("%c\n", &userAnswer);
-  // if (userAnswer == 'y') {
-  //   createFileSystem(buildTree);
-  // }
-  // else{
-  //   return -1;
-  // }
+  // return printFileSystem(buildTree);
   return 0;
 }
 
