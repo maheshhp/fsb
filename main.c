@@ -15,13 +15,20 @@
 #include "ctype.h"
 #include "sys/types.h"
 #include "sys/stat.h"
+#include "sys/queue.h"
 #include "unistd.h"
 
-static int gFileCount = 0, gTypeIsSet = 0, G_TOTAL_SUPPORTED_FORMATS = 19, gIsVerbose = 0;
+static int gFileCount = 0, gTypeIsSet = 0, G_TOTAL_SUPPORTED_FORMATS = 19, gIsVerbose = 0, gInjectTemplate = 0, gIsUserPermission = 0;
+
+struct qNode{
+  char *path;
+  TAILQ_ENTRY(qNode) paths;
+};
 
 struct fileTree{
   char name[' '];
   char ext[12];
+  mode_t permission;
   struct fileTree **next;
 };
 
@@ -220,6 +227,7 @@ struct fileTree* getNode(const char *fileName, const char *fileExt){
   temp->next = NULL;
   strcpy(temp->name, fileName);
   strcpy(temp->ext, fileExt);
+  temp->permission = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH; //default permission
   return temp;
 }
 
@@ -246,7 +254,7 @@ struct fileTree* addChild(struct fileTree* node, const char *fileName, const cha
 
 
 
-int createFile(const char *fileName, const char *fileExt, const char *contextPath){
+int createFile(const char *fileName, const char *fileExt, const char *contextPath, mode_t filePermission){
   FILE *fp;
   char *temp;
   asprintf(&temp, "%s/%s.%s", contextPath, fileName, fileExt);
@@ -256,15 +264,23 @@ int createFile(const char *fileName, const char *fileExt, const char *contextPat
     return 0;
   }
   fclose(fp);
+  if (gIsUserPermission == 1) {
+    chmod(temp, filePermission);
+  }
   fp = NULL;
   return 1;
 }
 
-int createDirectory(char *folderName, const char *contextPath){
+int createDirectory(char *folderName, const char *contextPath, mode_t dirPermission){
   int dirStatus = -1; //Coz 0 denotes success in case of mkdir
   char *temp;
   asprintf(&temp, "%s/%s", contextPath, folderName);
-  dirStatus = mkdir(temp, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+  if (gIsUserPermission == 1) {
+    dirStatus = mkdir(temp, dirPermission);
+  }
+  else{
+    dirStatus = mkdir(temp, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+  }
   free(temp);
   if (dirStatus != 0) {
     return 0;
@@ -312,6 +328,9 @@ int createFileSystem(struct fileTree* node){
 int printFileSystem(struct fileTree* tree){
   //Under construction
   if (gIsVerbose == 1) {
+    if (!tree) {
+      return -1;
+    }
     printf("Continue with file system building?(y, n)\n");
     char userAnswer;
     scanf("%c\n", &userAnswer);
@@ -344,6 +363,9 @@ int parseBuildCommand(int argc, const char *argv[]) {
       if (strcmp(argv[i], "--v")) {
         gIsVerbose = 1;
       }
+      if (strcmp(argv[i], "--t")) {
+        gInjectTemplate = 1;
+      }
     }
     else if (containsMinus(argv[i])) {
       printf("Coming to contains minus\n"); //For debug
@@ -374,6 +396,7 @@ int parseBuildCommand(int argc, const char *argv[]) {
           strcpy(currentDirectory, argv[i]);
         }
         else{
+          strcat(currentDirectory, " ");
           strcat(currentDirectory, argv[i]);
         }
       }
