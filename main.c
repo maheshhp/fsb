@@ -18,7 +18,7 @@
 #include "sys/queue.h"
 #include "unistd.h"
 
-static int gFileCount = 0, gTypeIsSet = 0, G_TOTAL_SUPPORTED_FORMATS = 19, gIsVerbose = 0;
+static int gFileCount = 0, gTypeIsSet = 0, G_TOTAL_SUPPORTED_FORMATS = 19, gIsVerbose = 0, gInjectTemplate=0;
 
 struct fileTree{
   char name[' '];
@@ -366,6 +366,7 @@ int parseBuildCommand(int argc, const char *argv[]) {
       }
       else {
         strcpy(currentFormat, getExtensionFromArgument(argv[i]));
+        printf("the value of current format is %s\n", currentFormat);
       }
     }
     else if(isRollUp(argv[i])){
@@ -379,6 +380,10 @@ int parseBuildCommand(int argc, const char *argv[]) {
       //Put navigating to the next node in the tree
     }
     else if(strcmp(currentFormat, "") == 0 && !(containsFormat(argv[i]))){
+
+      /*ISSUE: a node must be added and not a direct call to the directory*/
+
+
       printf("Coming to create dir\n"); //For debug
       if (i>0 && (isDrillDown(argv[i-1]) || isRollUp(argv[i-1]) || isDir(argv[i-1])) ) {
         if (strcmp(currentDirectory, "") == 0) {
@@ -403,12 +408,18 @@ int parseBuildCommand(int argc, const char *argv[]) {
     }
     else {
       printf("Coming to create file\n"); //For debug
-      char tempPath[' '], tempFileName[' '], tempFormat[' '];
-      strcpy(tempPath, currentDirectory);
-      separateFileNameAndFormat(argv[i], tempFileName, tempFormat);
-      printf("Adding this to the tree --> %s, %s\n", tempFileName, tempFormat); //For debug
-      strcat(tempPath, tempFileName);
-      addChild(buildTree, tempPath, tempFormat);
+      if (!containsFormat(argv[i])) {
+        printf("Adding this to the tree %s, %s\n", argv[i], currentFormat);
+      }
+      else{
+        char tempPath[' '], tempFileName[' '], tempFormat[' '];
+        strcpy(tempPath, currentDirectory);
+        separateFileNameAndFormat(argv[i], tempFileName, tempFormat);
+        printf("Adding this to the tree --> %s, %s\n", tempFileName, tempFormat); //For debug
+        strcat(tempPath, tempFileName);
+        addChild(buildTree, tempPath, tempFormat);
+      }
+
     }
   }
   // return printFileSystem(buildTree);
