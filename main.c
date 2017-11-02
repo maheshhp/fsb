@@ -18,12 +18,7 @@
 #include "sys/queue.h"
 #include "unistd.h"
 
-static int gFileCount = 0, gTypeIsSet = 0, G_TOTAL_SUPPORTED_FORMATS = 19, gIsVerbose = 0, gInjectTemplate = 0, gIsUserPermission = 0;
-
-struct qNode{
-  char *path;
-  TAILQ_ENTRY(qNode) paths;
-};
+static int gFileCount = 0, gTypeIsSet = 0, G_TOTAL_SUPPORTED_FORMATS = 19, gIsVerbose = 0;
 
 struct fileTree{
   char name[' '];
@@ -264,9 +259,7 @@ int createFile(const char *fileName, const char *fileExt, const char *contextPat
     return 0;
   }
   fclose(fp);
-  if (gIsUserPermission == 1) {
-    chmod(temp, filePermission);
-  }
+  chmod(temp, filePermission);
   fp = NULL;
   return 1;
 }
@@ -275,12 +268,8 @@ int createDirectory(char *folderName, const char *contextPath, mode_t dirPermiss
   int dirStatus = -1; //Coz 0 denotes success in case of mkdir
   char *temp;
   asprintf(&temp, "%s/%s", contextPath, folderName);
-  if (gIsUserPermission == 1) {
-    dirStatus = mkdir(temp, dirPermission);
-  }
-  else{
-    dirStatus = mkdir(temp, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
-  }
+  dirStatus = mkdir(temp, dirPermission);
+  //dirStatus = mkdir(temp, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
   free(temp);
   if (dirStatus != 0) {
     return 0;
