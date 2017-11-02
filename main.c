@@ -397,7 +397,7 @@ int parseBuildCommand(int argc, const char *argv[]) {
       printf("%d\n", tPermission); //For debug
       if (containsDoubleMinus(argv[i+1])) {
         memmove(tPermissionString, argv[i+1]+2, strlen(argv[i+1]) - 1);
-        tPermission = strtol(tPermissionString, NULL, 8);
+        tPermission = strtol(tPermissionString, NULL, 10);
         i++;
         printf("Adding this to the tree --> %s%s\n", currentDirectory, currentFormat); //For debug
         addChild(buildTree, currentDirectory, currentFormat, tPermission);
@@ -421,7 +421,7 @@ int parseBuildCommand(int argc, const char *argv[]) {
         memmove(tPermissionString, argv[i+1]+2, strlen(argv[i+1]) - 1);
         printf("%s\n", tPermissionString);//For debug
         i++;
-        tPermission = strtol(tPermissionString, NULL, 8);
+        tPermission = strtol(tPermissionString, NULL, 10);
         addChild(buildTree, tempPath, tempFormat, tPermission);
         printf("%d\n", tPermission);//For debug
         continue;
@@ -441,7 +441,7 @@ int parseBuildCommand(int argc, const char *argv[]) {
         memmove(tPermissionString, argv[i+1]+2, strlen(argv[i+1]) - 1);
         printf("%s\n", tPermissionString);//For debug
         i++;
-        tPermission = strtol(tPermissionString, NULL, 8);
+        tPermission = strtol(tPermissionString, NULL, 10);
         addChild(buildTree, tempPath, currentFormat, tPermission);
         printf("%d\n", tPermission);//For debug
         continue;
