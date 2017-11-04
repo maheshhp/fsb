@@ -249,7 +249,7 @@ void getMultipleExtensionFromArgument(const char *argument, char *dst){
 
 void separateFileNameAndFormat(const char* argument, char* fileName, char* fileFormat){
   int i=0, j=0;
-  char tempFormat[' '];
+  char tFormat[' '];
   while (argument[i] != '.') {
     fileName[i] = argument[i];
     i++;
@@ -474,12 +474,14 @@ int parseBuildCommand(int argc, const char *argv[]) {
       memset(currentFormat, 0, strlen(currentFormat));
       // Under construction
       //Put navigating to the previous node in the tree
+      //Set current directory accordingly
     }
     else if(isDrillDown(argv[i])){
       printf("Coming to drilldown\n"); //For debug
       memset(currentFormat, 0, strlen(currentFormat));
       // Under construction
       //Put navigating to the next node in the tree
+      //Set current directory accordingly
     }
     else if(strcmp(currentFormat, "") == 0 && !(containsFormat(argv[i]))){
 
@@ -504,7 +506,7 @@ int parseBuildCommand(int argc, const char *argv[]) {
     }
     else if(containsFormat(argv[i])){
       printf("Coming to contains format\n");//For debug
-      char tempPath[' '], tempFileName[' '], tempFormat[' '], tPermissionString [' '];
+      char tPath[' '], tFileName[' '], tFormat[' '], tPermissionString [' '];
       mode_t tPermission = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
       int tBool = 0;
       strcpy(tempPath, currentDirectory);
@@ -530,19 +532,19 @@ int parseBuildCommand(int argc, const char *argv[]) {
       char tempPath[' '], tPermissionString [' '];
       mode_t tPermission = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
       int tBool = 0;
-      strcat(tempPath, currentDirectory);
-      strcat(tempPath, argv[i]);
+      strcat(tPath, currentDirectory);
+      strcat(tPath, argv[i]);
       printf("%d\n", tPermission); //For debug
       if (containsDoubleMinus(argv[i+1])) {
         memmove(tPermissionString, argv[i+1]+2, strlen(argv[i+1]) - 1);
         printf("%s\n", tPermissionString);//For debug
         i++;
         tPermission = strtol(tPermissionString, NULL, 10);
-        // addChild(fs, tempPath, currentFormat, tPermission, 2);
+        addChild(buildTree, tPath, currentFormat, tPermission);
         printf("%d\n", tPermission);//For debug
         continue;
       }
-      // addChild(fs, tempPath, currentFormat, tPermission, 2);
+      addChild(buildTree, tPath, currentFormat, tPermission);
     }
   }
   // return printFileSystem(fs);
