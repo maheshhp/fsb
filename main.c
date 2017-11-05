@@ -410,11 +410,14 @@ int createFileSystem(struct fileTree* node){
 }
 
 int printFileSystem(struct fileTree* tree){
-  //Under construction
+
+  struct queueNode *currentNode = NULL, *tNode = NULL;
+
   if (gIsVerbose == 1) {
     if (!tree) {
       return -1;
     }
+
     printf("Continue with file system building?(y, n)\n");
     char userAnswer;
     scanf("%c\n", &userAnswer);
@@ -561,7 +564,7 @@ int main(int argc, const char *argv[]) {
     printf("\nNo Arguments !\n Refer manual for usage. (--help)\n");
     return -1;
   }
-  struct queueNode *currentNode = NULL, *tNode = NULL;
+
   int execCode = parseBuildCommand(argc, argv);
 
   printf("\n   Start the n-ary tree traversal \n" );
@@ -587,9 +590,7 @@ int main(int argc, const char *argv[]) {
     currentNode = NULL;
 
   }
-  // for (int i = 0; i < fs->; i++) {
-  //   /* code */
-  // }
+
   return execCode;
 }
 
