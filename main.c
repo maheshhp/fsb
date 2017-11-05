@@ -40,9 +40,7 @@ struct queueNode{
   struct fileTree *node;
   TAILQ_ENTRY(queueNode) nextNode;
 };
-
 struct fileTree *fs;
-
 /* The file formats are mapped to a shortened string, allowing for shorter commands.
 The same map will be used for creating files with multiple extensions.*/
 
@@ -71,7 +69,7 @@ fileMap extensions[]=
             };
 
 int isDir(const char *argument){
-  if(strcmp(argument, "-d") == 0) {
+  if(argument[1] == 'd' && argument[0] == '-') {
     return 1;
   }
   else {
@@ -175,6 +173,20 @@ int isRollUp(const char *argument){
   return 0;
 }
 
+void rollUpDirectory(char *argument){
+  int len = strlen(argument);
+  char tPath[' '];
+  for (int i = len-1; i >= 0; i--) {
+    if (argument[i] == '/') {
+      memcpy(tPath, argument, i+1);
+      break;
+    }
+  }
+
+  printf("The value of the rolled up directory is %s\n",tPath );
+  strcpy(argument, tPath);
+}
+
 int isDrillDown(const char *argument){
   if (argument[0] == '/') {
     return 1;
@@ -273,10 +285,12 @@ void getMultipleExtensionFromArgument(const char *argument, char *dst){
 
 void separateFileNameAndFormat(const char* argument, char* fileName, char* fileFormat){
   int i=0, j=0;
+  char tFormat[' '];
   while (argument[i] != '.') {
     fileName[i] = argument[i];
     i++;
   }
+  i++;
   while (i < strlen(argument)) {
     fileFormat[j++] = argument[i++];
   }
@@ -293,6 +307,14 @@ struct fileTree* getNode(const char *fileName, const char *fileExt){
   return temp;
 }
 
+struct queueNode* getQueueNode(struct fileTree* dataNode){
+  struct queueNode *temp;
+  temp = (struct queueNode*)malloc(sizeof(struct queueNode));
+
+  temp->node = dataNode;
+
+  return temp;
+}
 struct fileTree* buildNode(const char *fileName, const char *fileExt, mode_t filePermission, int nodeType){
     struct fileTree *temp;
     temp = getNode(fileName, fileExt);
@@ -321,34 +343,6 @@ void add(struct fileTree* parentNode, struct fileTree* childNode){
 
   // printf("val of num child is %d\n", parentNode->numberOfChildren);
 }
-struct fileTree* addChild(struct fileTree* node, const char *fileName, const char *fileExt, mode_t filePermission, int nodeType){
-  struct fileTree *temp;
-  temp = node;
-  if (temp == NULL) {
-    temp = getNode(fileName, fileExt);
-  }
-  else{
-    temp->next[temp->numberOfChildren] = getNode(fileName, fileExt);
-    temp->numberOfChildren += 1;
-  }
-  temp->permission = filePermission;
-  /*
-          node type 1: for directory
-               type 2: for file
-               type -1: if any error in the node type
-  */
-  if (nodeType ==1) {
-    temp->nodeType = 1;
-  } else if(nodeType ==2){
-    temp->nodeType = 2;
-  }else{
-    temp->nodeType = -1;
-  }
-  printf("The value of number of num of child in fns %d\n", temp->numberOfChildren);
-  return temp;
-}
-
-
 
 int createFile(const char *fileName, const char *fileExt, const char *contextPath, mode_t filePermission){
   FILE *fp;
@@ -437,7 +431,7 @@ int printFileSystem(struct fileTree* tree){
 }
 
 int parseBuildCommand(int argc, const char *argv[]) {
-  char currentFormat[20], currentDirectory[20];
+  char currentFormat[' '], currentDirectory[' '];
   mode_t currentPermission;
   int i = 0;
 
@@ -454,9 +448,6 @@ int parseBuildCommand(int argc, const char *argv[]) {
   currentPermission = gPermission;
 
   for (i = 1; i < argc; i++) {
-    printf("Parsing argument number - %d -----> %s\n", i, argv[i]);
-    printf("Current directory --> %s\n", currentDirectory);
-    printf("Current format --> %s\n", currentFormat);
     if (containsDoubleMinus(argv[i])) {
       if (getVerboseStatus()) {
         printf("\nSetting up tags like verbose, help and template injection\n" );
@@ -487,79 +478,78 @@ int parseBuildCommand(int argc, const char *argv[]) {
         if (getVerboseStatus()) {
           printf("Checking for directory and truncating the format context \n");
         }
+
         memset(currentFormat,0,strlen(currentFormat));
-        strcpy(currentFormat, "");
-        printf("currentFormat --> %s\n", currentFormat);//For Debug
+        strcpy(currentFormat, ""); //Adding a directory to the tree
       }
       else if (isMultipleExtension(argv[i])) {
         getMultipleExtensionFromArgument(argv[i],currentFormat);
         if (getVerboseStatus()) {
           printf("The multiple extension value is %s\n", currentFormat);
         }
+
       }
       else {
         memset(currentFormat,0,strlen(currentFormat));
         strcpy(currentFormat, getExtensionFromArgument(argv[i]));
         printf("the value of current format is %s\n", currentFormat);
         printf("The single extension value is %s\n", currentFormat);//For debug
+
       }
     }
     else if(isRollUp(argv[i])){
-      printf("Coming to rollup\n"); //For debug
+      printf("Rolling up a directory because the ^ argument was given\n");
       memset(currentFormat, 0, strlen(currentFormat));
-      // Under construction
-      //Put navigating to the previous node in the tree
-      //Set current directory accordingly
+      rollUpDirectory(currentDirectory);
+      currentNode = currentNode->parent;
+
     }
     else if(isDrillDown(argv[i])){
       printf("Drilling down a directory because the / argument was given\n");
       memset(currentFormat, 0, strlen(currentFormat));
+
       strcat(currentDirectory,argv[i-1]);
       strcat(currentDirectory,"/");
       currentNode = currentNode->next[(currentNode->numberOfChildren)-1];
-      // Under construction
-      //Put navigating to the next node in the tree
-      //Set current directory accordingly
+
     }
     else if(strcmp(currentFormat, "") == 0 && !(containsFormat(argv[i]))){
+
+      // strcat(currentDirectory, "/");
+      // strcat(currentDirectory, argv[i]);
       char tPath[' '];
-      memset(tPath, 0, strlen(tPath));
+      strcpy(tPath,"");
       strcat(tPath, currentDirectory);
       strcat(tPath, argv[i]);
-      printf("The value of permission for the current directory is %o\n", currentPermission); //For debug
-      printf("Adding this directory to the tree --> %s\n", tPath); //For debug
+      printf("The value of permission for the current directory is %o\n", currentPermission);
+      printf("Adding this directory to the trees --> %s\n", tPath);
       currentPermission = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
       add(currentNode, buildNode(tPath, currentFormat, currentPermission, 1));
     }
     else if(containsFormat(argv[i])){
       printf("Checking if the argument has a format or not\n");//For debug
       char tPath[' '], tFileName[' '], tFormat[' '];
-      memset(tFormat, 0, strlen(tFormat));
-      memset(tPath, 0, strlen(tPath));
-      memset(tFileName, 0, strlen(tFileName));
       strcpy(tPath, currentDirectory);
       separateFileNameAndFormat(argv[i], tFileName, tFormat);
+
       strcat(tPath, tFileName);
-      if (strcmp(currentFormat, "") != 0) {
-        strcat(tFormat, currentFormat);
-      }
-      printf("Adding this to the tree --> %s.%s\n", tPath, tFormat); //For debug
-      printf("Current permission value for the file is %o\n", currentPermission); //For debug
+      printf("Adding this file to the tree --> %s%s\n", tPath, tFormat);
+      printf("current permission value for the file is %o\n", currentPermission);
       currentPermission = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
       add(currentNode, buildNode(tPath, tFormat, currentPermission, 2));
     }
     else {
-      printf("Adding this to the tree knsi--> %s.%s\n", argv[i], currentFormat); //For debug
+
       char tPath[' '];
-      memset(tPath, 0, strlen(tPath));
+      strcpy(tPath,"");
       strcat(tPath, currentDirectory);
       strcat(tPath, argv[i]);
       printf("current permission value for the file with extension is %o\n", currentPermission); //For debug
+      printf("Adding this file to the tree --> %s%s\n", tPath, currentFormat); //For debug
       currentPermission = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
       add(currentNode, buildNode(tPath, currentFormat, currentPermission, 2));
     }
   }
-  printf("The name of the current node is %s\n", currentNode->name);
   // return printFileSystem(fs);
   return 0;
 }
@@ -571,14 +561,32 @@ int main(int argc, const char *argv[]) {
     printf("\nNo Arguments !\n Refer manual for usage. (--help)\n");
     return -1;
   }
-
+  struct queueNode *currentNode = NULL, *tNode = NULL;
   int execCode = parseBuildCommand(argc, argv);
 
   printf("\n   Start the n-ary tree traversal \n" );
-  printf("the number of children for the head is %d\n", fs->numberOfChildren);
+
   TAILQ_HEAD(head_s, queueNode) head;
   // Initialize the head before use
   TAILQ_INIT(&head);
+  currentNode = getQueueNode(fs);
+  TAILQ_INSERT_TAIL(&head, currentNode, nextNode);
+  currentNode = NULL;
+  while (!TAILQ_EMPTY(&head)) {
+    currentNode = TAILQ_FIRST(&head);
+    printf("%s%s\n",currentNode->node->name, currentNode->node->ext );
+    printf("number of children is  %d\n", currentNode->node->numberOfChildren);
+
+    for (int i = 0; i < currentNode->node->numberOfChildren; i++) {
+      tNode = getQueueNode(currentNode->node->next[i]);
+      TAILQ_INSERT_TAIL(&head, tNode, nextNode);
+      tNode = NULL;
+    }
+    TAILQ_REMOVE(&head, currentNode, nextNode);
+    free(currentNode);
+    currentNode = NULL;
+
+  }
   // for (int i = 0; i < fs->; i++) {
   //   /* code */
   // }
@@ -588,32 +596,6 @@ int main(int argc, const char *argv[]) {
 /*
 
   ERROR/BUGS:
-
-  1. there is an inconsistency in the format parsing.
-      eg: try running ./fsb abc.php def.php and ./fsb -p abc def -- FIXED
-
-  2. inconsistency in naming using tPath in someplaces and tFileName in some places.
-      fix them. -- CLARIFICATION WILL BE PROVIDED
-
-  3. containsFormat forgets to take into consideration for the context path. -- FIXED
-
-  4. currentDirectory also not being updated properly in parsing(is being used badly in fact).
-      eg: run ./fsb dir1 abc.php def.php. -- FIX ALREADY DONE?
-
-  5. separateFileNameAndFormat has a bug does not prepend the '.' -- FIXED
-
-  6. Please check drill down in the following case:
-      input: ./a.out /abd abc.txt
-      output: Parsing argument number - 1 -----> /abd
-              Current directory --> ./
-              Current format -->
-              Drilling down a directory because the / argument was given
-              Parsing argument number - 2 -----> abc.txt
-              Current directory --> ././a.out/
-              Current format -->
-              Checking if the argument has a format or not
-              Adding this to the tree --> ././a.out/abc..txt
-              Current permission value for the file is 755
-              Segmentation fault: 11
+  5. separateFileNameAndFormat has a bug does not prepend the '.' (still pending)
 
 */
