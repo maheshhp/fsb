@@ -27,7 +27,8 @@ struct fileTree{
   char ext[12];
   mode_t permission;
   int numberOfChildren;
-  struct fileTree **next;
+  struct fileTree *next[' '];
+  struct fileTree *parent;
 };
 
 typedef struct{
@@ -284,7 +285,7 @@ void separateFileNameAndFormat(const char* argument, char* fileName, char* fileF
 struct fileTree* getNode(const char *fileName, const char *fileExt){
   struct fileTree *temp;
   temp = (struct fileTree*)malloc(sizeof(struct fileTree));
-  temp->next = NULL;
+  // temp->next = NULL;
   temp->numberOfChildren = 0;
   strcpy(temp->name, fileName);
   strcpy(temp->ext, fileExt);
@@ -310,14 +311,14 @@ struct fileTree* buildNode(const char *fileName, const char *fileExt, mode_t fil
       temp->nodeType = -1;
     }
 
-    printf("the value of number of num of child in fn %d\n", temp->numberOfChildren);
     return temp;
 }
 void add(struct fileTree* parentNode, struct fileTree* childNode){
 
   parentNode->next[parentNode->numberOfChildren] = childNode;
+  parentNode->next[parentNode->numberOfChildren]->parent = parentNode;
   parentNode->numberOfChildren += 1;
-  printf("hgergfdrer\n");
+
   // printf("val of num child is %d\n", parentNode->numberOfChildren);
 }
 struct fileTree* addChild(struct fileTree* node, const char *fileName, const char *fileExt, mode_t filePermission, int nodeType){
@@ -442,13 +443,17 @@ int parseBuildCommand(int argc, const char *argv[]) {
 
   /* first would be to put an empty root node incase the fs to be built by the user does not have a root*/
   fs = buildNode("root","",gPermission,1);
-  printf("Number of children:  %d\n",fs->numberOfChildren );
+  fs->parent = NULL;
 
+  /*Now we need a pointer to keep track of the location of the parser in teh file system*/
+  struct fileTree *currentNode = fs;
+
+  /*setting up the default values for the format, directory and the permission*/
   strcpy(currentFormat,"");
-  strcpy(currentDirectory, "");
+  strcpy(currentDirectory, "./");
   currentPermission = gPermission;
 
-  for (i = 1; i < argc-1; i++) {
+  for (i = 1; i < argc; i++) {
     if (containsDoubleMinus(argv[i])) {
       if (getVerboseStatus()) {
         printf("\nSetting up tags like verbose, help and template injection\n" );
@@ -477,7 +482,7 @@ int parseBuildCommand(int argc, const char *argv[]) {
       /* remove any exisitng extensions and set it to empty (implementation of the -d option)*/
       if (isDir(argv[i])) {
         if (getVerboseStatus()) {
-          printf("Checking for directory\n");
+          printf("Checking for directory and truncating the format context \n");
         }
 
         memset(currentFormat,0,strlen(currentFormat));
@@ -494,7 +499,7 @@ int parseBuildCommand(int argc, const char *argv[]) {
         memset(currentFormat,0,strlen(currentFormat));
         strcpy(currentFormat, getExtensionFromArgument(argv[i]));
         printf("the value of current format is %s\n", currentFormat);
-        printf("In single extension --> %s\n", currentFormat);//For debug
+        printf("The single extension value is %s\n", currentFormat);//For debug
 
       }
     }
@@ -506,44 +511,56 @@ int parseBuildCommand(int argc, const char *argv[]) {
       //Set current directory accordingly
     }
     else if(isDrillDown(argv[i])){
-      printf("Coming to drilldown\n"); //For debug
+      printf("Drilling down a directory because the / argument was given\n");
       memset(currentFormat, 0, strlen(currentFormat));
+
+      strcat(currentDirectory,argv[i-1]);
+      strcat(currentDirectory,"/");
+      currentNode = currentNode->next[(currentNode->numberOfChildren)-1];
       // Under construction
       //Put navigating to the next node in the tree
       //Set current directory accordingly
     }
     else if(strcmp(currentFormat, "") == 0 && !(containsFormat(argv[i]))){
-      printf("Coming to create dir\n"); //For debug
-      strcat(currentDirectory, "/");
-      strcat(currentDirectory, argv[i]);
-      printf("%d\n", currentPermission); //For debug
-      printf("Adding this to the tree --> %s.%s\n", currentDirectory, currentFormat); //For debug
+
+      // strcat(currentDirectory, "/");
+      // strcat(currentDirectory, argv[i]);
+      char tPath[' '];
+      strcpy(tPath,"");
+      strcat(tPath, currentDirectory);
+      strcat(tPath, argv[i]);
+      printf("The value of permission for the current directory is %o\n", currentPermission); //For debug
+      printf("Adding this directory to the treesk --> %s\n", tPath); //For debug
       currentPermission = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
       // addChild(fs, currentDirectory, currentFormat, tPermission, 1);
+      add(currentNode, buildNode(tPath, currentFormat, currentPermission, 1));
     }
     else if(containsFormat(argv[i])){
-      printf("Coming to contains format\n");//For debug
+      printf("Checking if the argument has a format or not\n");//For debug
       char tPath[' '], tFileName[' '], tFormat[' '];
       strcpy(tPath, currentDirectory);
       separateFileNameAndFormat(argv[i], tFileName, tFormat);
-      printf("Adding this to the tree --> %s.%s\n", tFileName, tFormat); //For debug
+
       strcat(tPath, tFileName);
-      printf("%d\n", currentPermission); //For debug
+      printf("Adding this to the tree --> %s.%s\n", tPath, tFormat); //For debug
+      printf("current permission value for the file is %o\n", currentPermission); //For debug
       currentPermission = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
-      // add(fs, buildNode(tempPath, tempFormat, tPermission, 2));
+      add(currentNode, buildNode(tPath, tFormat, currentPermission, 2));
       // addChild(fs, tempPath, tempFormat, tPermission, 2);
     }
     else {
-      printf("Coming to create file\n"); //For debug
-      printf("Adding this to the tree --> %s.%s\n", argv[i], currentFormat); //For debug
+
+      printf("Adding this to the tree knsi--> %s.%s\n", argv[i], currentFormat); //For debug
       char tPath[' '];
       strcat(tPath, currentDirectory);
       strcat(tPath, argv[i]);
-      printf("%d\n", currentPermission); //For debug
+      printf("current permission value for the file with extension is %o\n", currentPermission); //For debug
       currentPermission = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
+      add(currentNode, buildNode(tPath, currentFormat, currentPermission, 2));
       //addChild(buildTree, tPath, currentFormat, tPermission);
     }
   }
+  printf("the name of the current node is %s\n", currentNode->name);
   // return printFileSystem(fs);
   return 0;
 }
@@ -552,14 +569,14 @@ int parseBuildCommand(int argc, const char *argv[]) {
 int main(int argc, const char *argv[]) {
 
   if(argc <= 1){
-    printf("No Arguments !\n Refer manual for usage. (--help)");
+    printf("\nNo Arguments !\n Refer manual for usage. (--help)\n");
     return -1;
   }
 
   int execCode = parseBuildCommand(argc, argv);
 
   printf("\n   Start the n-ary tree traversal \n" );
-  // printf("the number of children for the head is %d\n", fs->numberOfChildren);
+  printf("the number of children for the head is %d\n", fs->numberOfChildren);
   TAILQ_HEAD(head_s, queueNode) head;
   // Initialize the head before use
   TAILQ_INIT(&head);
@@ -568,3 +585,22 @@ int main(int argc, const char *argv[]) {
   // }
   return execCode;
 }
+
+/*
+
+  ERROR/BUGS:
+
+  1. there is an inconsistency in the format parsing.
+      eg: try running ./fsb abc.php def.php and ./fsb -p abc def
+
+  2. inconsistency in naming using tPath in someplaces and tFileName in some places.
+      fix them.
+
+  3. containsFormat forgets to take into consideration for the context path.
+
+  4. currentDirectory also not being updated properly in parsing(is being used badly in fact).
+      eg: run ./fsb dir1 abc.php def.php.
+
+  5. separateFileNameAndFormat has a bug does not prepend the '.'
+
+*/
