@@ -182,7 +182,6 @@ void rollUpDirectory(char *argument){
       break;
     }
   }
-
   printf("The value of the rolled up directory is %s\n",tPath );
   strcpy(argument, tPath);
 }
@@ -450,6 +449,7 @@ int parseBuildCommand(int argc, const char *argv[]) {
   currentPermission = gPermission;
 
   for (i = 1; i < argc; i++) {
+    printf("\n\nIteration: %d | Current format: %s | Current Directory: %s\n\n", i, currentFormat, currentDirectory);
     if (containsDoubleMinus(argv[i])) {
       if (getVerboseStatus()) {
         printf("\nSetting up tags like verbose, help and template injection\n" );
@@ -480,7 +480,6 @@ int parseBuildCommand(int argc, const char *argv[]) {
         if (getVerboseStatus()) {
           printf("Checking for directory and truncating the format context \n");
         }
-
         memset(currentFormat,0,strlen(currentFormat));
         strcpy(currentFormat, ""); //Adding a directory to the tree
       }
@@ -509,18 +508,14 @@ int parseBuildCommand(int argc, const char *argv[]) {
     else if(isDrillDown(argv[i])){
       printf("Drilling down a directory because the / argument was given\n");
       memset(currentFormat, 0, strlen(currentFormat));
-
       strcat(currentDirectory,argv[i-1]);
       strcat(currentDirectory,"/");
       currentNode = currentNode->next[(currentNode->numberOfChildren)-1];
 
     }
     else if(strcmp(currentFormat, "") == 0 && !(containsFormat(argv[i]))){
-
-      // strcat(currentDirectory, "/");
-      // strcat(currentDirectory, argv[i]);
       char tPath[' '];
-      strcpy(tPath,"");
+      memset(tPath, 0, strlen(tPath));
       strcat(tPath, currentDirectory);
       strcat(tPath, argv[i]);
       printf("The value of permission for the current directory is %o\n", currentPermission);
@@ -531,12 +526,17 @@ int parseBuildCommand(int argc, const char *argv[]) {
     else if(containsFormat(argv[i])){
       printf("Checking if the argument has a format or not\n");//For debug
       char tPath[' '], tFileName[' '], tFormat[' '];
+      memset(tFormat, 0, strlen(tFormat));
+      memset(tPath, 0, strlen(tPath));
+      memset(tFileName, 0, strlen(tFileName));
       strcpy(tPath, currentDirectory);
       separateFileNameAndFormat(argv[i], tFileName, tFormat);
-
+      if (strcmp(currentFormat, "") != 0) {
+        strcat(tFormat, currentFormat);
+      }
       strcat(tPath, tFileName);
       printf("Adding this file to the tree --> %s%s\n", tPath, tFormat);
-      printf("current permission value for the file is %o\n", currentPermission);
+      printf("Current permission value for the file is %o\n", currentPermission);
       currentPermission = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
       add(currentNode, buildNode(tPath, tFormat, currentPermission, 2));
     }
@@ -563,6 +563,8 @@ int main(int argc, const char *argv[]) {
     printf("\nNo Arguments !\n Refer manual for usage. (--help)\n");
     return -1;
   }
+
+  struct queueNode *currentNode = NULL, *tNode = NULL;
 
   int execCode = parseBuildCommand(argc, argv);
 
