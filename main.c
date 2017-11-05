@@ -239,7 +239,7 @@ char* getExtensionFromArgument(const char *argument){
       return extensions[i].format;
     }
   }
-  return buildExtensionFromArgument(argument);
+  return buildExtensionFromArgument((char*)argument);
 }
 
 mode_t getFilePermission(const char *argument){
@@ -421,6 +421,8 @@ int createFileSystem(struct fileTree* node){
       createDirectory(currentNode->node->name,currentNode->node->permission);
     }else if(currentNode->node->nodeType == 2){
       createFile(currentNode->node->name,currentNode->node->ext,currentNode->node->permission);
+    }else{
+      printf("This File/Directory has some errors in it. Please review it once again\nName of the node: %s\nExtension of the Node: %s\nPermission for the node: %o\n",currentNode->node->name,currentNode->node->ext,currentNode->node->permission );
     }
     for (int i = 0; i < currentNode->node->numberOfChildren; i++) {
       tNode = getQueueNode(currentNode->node->next[i]);
