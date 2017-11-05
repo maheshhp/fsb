@@ -578,7 +578,7 @@ int main(int argc, const char *argv[]) {
   while (!TAILQ_EMPTY(&head)) {
     currentNode = TAILQ_FIRST(&head);
     printf("%s%s\n",currentNode->node->name, currentNode->node->ext );
-    printf("number of children is  %d\n", currentNode->node->numberOfChildren);
+    printf("Number of children is  %d\n", currentNode->node->numberOfChildren);
 
     for (int i = 0; i < currentNode->node->numberOfChildren; i++) {
       tNode = getQueueNode(currentNode->node->next[i]);
