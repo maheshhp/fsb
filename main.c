@@ -40,7 +40,9 @@ struct queueNode{
   struct fileTree *node;
   TAILQ_ENTRY(queueNode) nextNode;
 };
+
 struct fileTree *fs;
+
 /* The file formats are mapped to a shortened string, allowing for shorter commands.
 The same map will be used for creating files with multiple extensions.*/
 
@@ -69,7 +71,7 @@ fileMap extensions[]=
             };
 
 int isDir(const char *argument){
-  if(argument[1] == 'd' && argument[0] == '-') {
+  if(strcmp(argument, "-d") == 0) {
     return 1;
   }
   else {
@@ -271,12 +273,10 @@ void getMultipleExtensionFromArgument(const char *argument, char *dst){
 
 void separateFileNameAndFormat(const char* argument, char* fileName, char* fileFormat){
   int i=0, j=0;
-  char tFormat[' '];
   while (argument[i] != '.') {
     fileName[i] = argument[i];
     i++;
   }
-  i++;
   while (i < strlen(argument)) {
     fileFormat[j++] = argument[i++];
   }
@@ -437,7 +437,7 @@ int printFileSystem(struct fileTree* tree){
 }
 
 int parseBuildCommand(int argc, const char *argv[]) {
-  char currentFormat[' '], currentDirectory[' '];
+  char currentFormat[20], currentDirectory[20];
   mode_t currentPermission;
   int i = 0;
 
@@ -454,6 +454,9 @@ int parseBuildCommand(int argc, const char *argv[]) {
   currentPermission = gPermission;
 
   for (i = 1; i < argc; i++) {
+    printf("Parsing argument number - %d -----> %s\n", i, argv[i]);
+    printf("Current directory --> %s\n", currentDirectory);
+    printf("Current format --> %s\n", currentFormat);
     if (containsDoubleMinus(argv[i])) {
       if (getVerboseStatus()) {
         printf("\nSetting up tags like verbose, help and template injection\n" );
@@ -484,23 +487,21 @@ int parseBuildCommand(int argc, const char *argv[]) {
         if (getVerboseStatus()) {
           printf("Checking for directory and truncating the format context \n");
         }
-
         memset(currentFormat,0,strlen(currentFormat));
-        strcpy(currentFormat, ""); //Adding a directory to the tree
+        strcpy(currentFormat, "");
+        printf("currentFormat --> %s\n", currentFormat);//For Debug
       }
       else if (isMultipleExtension(argv[i])) {
         getMultipleExtensionFromArgument(argv[i],currentFormat);
         if (getVerboseStatus()) {
           printf("The multiple extension value is %s\n", currentFormat);
         }
-
       }
       else {
         memset(currentFormat,0,strlen(currentFormat));
         strcpy(currentFormat, getExtensionFromArgument(argv[i]));
         printf("the value of current format is %s\n", currentFormat);
         printf("The single extension value is %s\n", currentFormat);//For debug
-
       }
     }
     else if(isRollUp(argv[i])){
@@ -513,7 +514,6 @@ int parseBuildCommand(int argc, const char *argv[]) {
     else if(isDrillDown(argv[i])){
       printf("Drilling down a directory because the / argument was given\n");
       memset(currentFormat, 0, strlen(currentFormat));
-
       strcat(currentDirectory,argv[i-1]);
       strcat(currentDirectory,"/");
       currentNode = currentNode->next[(currentNode->numberOfChildren)-1];
@@ -522,45 +522,44 @@ int parseBuildCommand(int argc, const char *argv[]) {
       //Set current directory accordingly
     }
     else if(strcmp(currentFormat, "") == 0 && !(containsFormat(argv[i]))){
-
-      // strcat(currentDirectory, "/");
-      // strcat(currentDirectory, argv[i]);
       char tPath[' '];
-      strcpy(tPath,"");
+      memset(tPath, 0, strlen(tPath));
       strcat(tPath, currentDirectory);
       strcat(tPath, argv[i]);
       printf("The value of permission for the current directory is %o\n", currentPermission); //For debug
-      printf("Adding this directory to the treesk --> %s\n", tPath); //For debug
+      printf("Adding this directory to the tree --> %s\n", tPath); //For debug
       currentPermission = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
-      // addChild(fs, currentDirectory, currentFormat, tPermission, 1);
       add(currentNode, buildNode(tPath, currentFormat, currentPermission, 1));
     }
     else if(containsFormat(argv[i])){
       printf("Checking if the argument has a format or not\n");//For debug
       char tPath[' '], tFileName[' '], tFormat[' '];
+      memset(tFormat, 0, strlen(tFormat));
+      memset(tPath, 0, strlen(tPath));
+      memset(tFileName, 0, strlen(tFileName));
       strcpy(tPath, currentDirectory);
       separateFileNameAndFormat(argv[i], tFileName, tFormat);
-
       strcat(tPath, tFileName);
+      if (strcmp(currentFormat, "") != 0) {
+        strcat(tFormat, currentFormat);
+      }
       printf("Adding this to the tree --> %s.%s\n", tPath, tFormat); //For debug
-      printf("current permission value for the file is %o\n", currentPermission); //For debug
+      printf("Current permission value for the file is %o\n", currentPermission); //For debug
       currentPermission = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
       add(currentNode, buildNode(tPath, tFormat, currentPermission, 2));
-      // addChild(fs, tempPath, tempFormat, tPermission, 2);
     }
     else {
-
       printf("Adding this to the tree knsi--> %s.%s\n", argv[i], currentFormat); //For debug
       char tPath[' '];
+      memset(tPath, 0, strlen(tPath));
       strcat(tPath, currentDirectory);
       strcat(tPath, argv[i]);
       printf("current permission value for the file with extension is %o\n", currentPermission); //For debug
       currentPermission = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
       add(currentNode, buildNode(tPath, currentFormat, currentPermission, 2));
-      //addChild(buildTree, tPath, currentFormat, tPermission);
     }
   }
-  printf("the name of the current node is %s\n", currentNode->name);
+  printf("The name of the current node is %s\n", currentNode->name);
   // return printFileSystem(fs);
   return 0;
 }
@@ -591,16 +590,30 @@ int main(int argc, const char *argv[]) {
   ERROR/BUGS:
 
   1. there is an inconsistency in the format parsing.
-      eg: try running ./fsb abc.php def.php and ./fsb -p abc def
+      eg: try running ./fsb abc.php def.php and ./fsb -p abc def -- FIXED
 
   2. inconsistency in naming using tPath in someplaces and tFileName in some places.
-      fix them.
+      fix them. -- CLARIFICATION WILL BE PROVIDED
 
-  3. containsFormat forgets to take into consideration for the context path.
+  3. containsFormat forgets to take into consideration for the context path. -- FIXED
 
   4. currentDirectory also not being updated properly in parsing(is being used badly in fact).
-      eg: run ./fsb dir1 abc.php def.php.
+      eg: run ./fsb dir1 abc.php def.php. -- FIX ALREADY DONE?
 
-  5. separateFileNameAndFormat has a bug does not prepend the '.'
+  5. separateFileNameAndFormat has a bug does not prepend the '.' -- FIXED
+
+  6. Please check drill down in the following case:
+      input: ./a.out /abd abc.txt
+      output: Parsing argument number - 1 -----> /abd
+              Current directory --> ./
+              Current format -->
+              Drilling down a directory because the / argument was given
+              Parsing argument number - 2 -----> abc.txt
+              Current directory --> ././a.out/
+              Current format -->
+              Checking if the argument has a format or not
+              Adding this to the tree --> ././a.out/abc..txt
+              Current permission value for the file is 755
+              Segmentation fault: 11
 
 */
