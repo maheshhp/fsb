@@ -290,7 +290,6 @@ void separateFileNameAndFormat(const char* argument, char* fileName, char* fileF
     fileName[i] = argument[i];
     i++;
   }
-  i++;
   while (i < strlen(argument)) {
     fileFormat[j++] = argument[i++];
   }
