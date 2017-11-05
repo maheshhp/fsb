@@ -330,8 +330,11 @@ struct fileTree* buildNode(const char *fileName, const char *fileExt, mode_t fil
       temp->nodeType = 1;
     } else if(nodeType ==2){
       temp->nodeType = 2;
-    }else{
+    }else if(nodeType == -1){
       temp->nodeType = -1;
+    }else{
+      /* This is a special node type to handle the root folder getting created */
+      temp->nodeType = 0;
     }
 
     return temp;
@@ -417,11 +420,10 @@ int createFileSystem(struct fileTree* node){
   while (!TAILQ_EMPTY(&head)) {
     currentNode = TAILQ_FIRST(&head);
     if (currentNode->node->nodeType == 1) {
-      printf("creating the file\n");
       createDirectory(currentNode->node->name,currentNode->node->permission);
     }else if(currentNode->node->nodeType == 2){
       createFile(currentNode->node->name,currentNode->node->ext,currentNode->node->permission);
-    }else{
+    }else if(currentNode->node->nodeType == -1){
       printf("This File/Directory has some errors in it. Please review it once again\nName of the node: %s\nExtension of the Node: %s\nPermission for the node: %o\n",currentNode->node->name,currentNode->node->ext,currentNode->node->permission );
     }
     for (int i = 0; i < currentNode->node->numberOfChildren; i++) {
@@ -460,7 +462,7 @@ int parseBuildCommand(int argc, const char *argv[]) {
   int i = 0;
 
   /* first would be to put an empty root node incase the fs to be built by the user does not have a root*/
-  fs = buildNode("root","",gPermission,1);
+  fs = buildNode("root","",gPermission,3);
   fs->parent = NULL;
 
   /*Now we need a pointer to keep track of the location of the parser in teh file system*/
