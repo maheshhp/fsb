@@ -125,6 +125,10 @@ int getVerboseStatus(){
   return gIsVerbose;
 }
 
+int getInjectStatus(){
+  return gInjectTemplate;
+}
+
 int isMultipleExtension(const char *argument){
   int extensionCount = 0;
   for (int i = 0; argument[i] != '\0'; i++) {
@@ -246,7 +250,7 @@ mode_t getFilePermission(const char *argument){
   char tPermissionString[' '];
   mode_t tPermission;
   memmove(tPermissionString, argument + 2, strlen(argument) - 1);
-  tPermission = strtol(tPermissionString, NULL, 10);
+  tPermission = strtol(tPermissionString, NULL, 8);
   if (tPermission > 777 || tPermission < 000) {
     printf("Invalid permissions, setting default permission\n");
     return gPermission;
@@ -320,7 +324,6 @@ struct fileTree* buildNode(const char *fileName, const char *fileExt, mode_t fil
     struct fileTree *temp;
     temp = getNode(fileName, fileExt);
     temp->permission = filePermission;
-
     /*
             node type 1: for directory
                  type 2: for file
@@ -345,7 +348,6 @@ void add(struct fileTree* parentNode, struct fileTree* childNode){
   parentNode->next[parentNode->numberOfChildren]->parent = parentNode;
   parentNode->numberOfChildren += 1;
 
-  // printf("val of num child is %d\n", parentNode->numberOfChildren);
 }
 
 int createFile(const char *fileName, const char *fileExt, mode_t filePermission){
@@ -353,12 +355,15 @@ int createFile(const char *fileName, const char *fileExt, mode_t filePermission)
   char *temp;
   asprintf(&temp, "%s%s",fileName, fileExt);
   fp = fopen(temp, "w");
-  free(temp);
   if(fp == NULL){
     return 0;
   }
   fclose(fp);
-  chmod(temp, filePermission);
+  if (getInjectStatus()) {
+    writeTemplateToFile(temp, fileExt);
+  }
+  printf("Changing file permission to %o\n", filePermission);
+  printf("%d\n", chmod(temp, filePermission));
   fp = NULL;
   return 1;
 }
@@ -368,7 +373,6 @@ int createDirectory(char *folderName, mode_t dirPermission){
   char *temp;
   asprintf(&temp, "%s",folderName);
   dirStatus = mkdir(temp, dirPermission);
-  //dirStatus = mkdir(temp, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
   free(temp);
   if (dirStatus != 0) {
     return 0;
@@ -380,11 +384,12 @@ int createDirectory(char *folderName, mode_t dirPermission){
 int writeTemplateToFile(const char *filePath, const char *templateExt){
   FILE *newFile, *tempFile;
   char *temp, ch;
-  asprintf(&temp, "%s_template.txt", templateExt);
+  asprintf(&temp, "./%s_template.txt", templateExt+1);
   tempFile = fopen(temp, "r");
-  free(temp);
   newFile = fopen(filePath, "w");
+  printf("Opening %s file and injecting the file %s.\n", filePath, temp);
   if(newFile == NULL || tempFile == NULL){
+    printf("Error Opening File!\n");
     if (tempFile != NULL) {
       fclose(tempFile);
     }
@@ -400,11 +405,6 @@ int writeTemplateToFile(const char *filePath, const char *templateExt){
   }
   fclose(tempFile);
   fclose(newFile);
-  return 1;
-}
-
-int injectFileTemplate(struct fileTree* node){
-  //Under construction
   return 1;
 }
 
@@ -445,15 +445,47 @@ int printFileSystem(struct fileTree* tree){
     return -1;
   }
 
+  struct queueNode *currentNode = NULL, *tNode = NULL;
+
+  printf("\n   Start the n-ary tree traversal \n" );
+
+  TAILQ_HEAD(head_s, queueNode) head;
+  // Initialize the head before use
+  TAILQ_INIT(&head);
+  currentNode = getQueueNode(fs);
+  TAILQ_INSERT_TAIL(&head, currentNode, nextNode);
+  currentNode = NULL;
+  while (!TAILQ_EMPTY(&head)) {
+    currentNode = TAILQ_FIRST(&head);
+    printf("%s%s\n",currentNode->node->name, currentNode->node->ext );
+    printf("%d\n", currentNode->node->permission);
+    printf("Number of children is  %d\n", currentNode->node->numberOfChildren);
+
+    for (int i = 0; i < currentNode->node->numberOfChildren; i++) {
+      tNode = getQueueNode(currentNode->node->next[i]);
+      TAILQ_INSERT_TAIL(&head, tNode, nextNode);
+      tNode = NULL;
+    }
+    TAILQ_REMOVE(&head, currentNode, nextNode);
+    free(currentNode);
+    currentNode = NULL;
+
+  }
+
+  int createFileSystemStatus = -1;
+
   printf("Continue with file system building?(y, n)\n");
   char userAnswer;
   userAnswer = getchar();
   if (userAnswer == 'y') {
-    return createFileSystem(tree);
+    createFileSystemStatus = createFileSystem(tree);
   }
   else{
     return -1;
   }
+
+  return createFileSystemStatus;
+
 }
 
 int parseBuildCommand(int argc, const char *argv[]) {
@@ -528,7 +560,6 @@ int parseBuildCommand(int argc, const char *argv[]) {
       memset(currentFormat, 0, strlen(currentFormat));
       rollUpDirectory(currentDirectory);
       currentNode = currentNode->parent;
-
     }
     else if(isDrillDown(argv[i])){
       printf("Drilling down a directory because the / argument was given\n");
@@ -545,8 +576,8 @@ int parseBuildCommand(int argc, const char *argv[]) {
       strcat(tPath, argv[i]);
       printf("The value of permission for the current directory is %o\n", currentPermission);
       printf("Adding this directory to the trees --> %s\n", tPath);
-      currentPermission = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
       add(currentNode, buildNode(tPath, currentFormat, currentPermission, 1));
+      currentPermission = gPermission;
     }
     else if(containsFormat(argv[i])){
       printf("Checking if the argument has a format or not\n");//For debug
@@ -562,23 +593,22 @@ int parseBuildCommand(int argc, const char *argv[]) {
       strcat(tPath, tFileName);
       printf("Adding this file to the tree --> %s%s\n", tPath, tFormat);
       printf("Current permission value for the file is %o\n", currentPermission);
-      currentPermission = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
       add(currentNode, buildNode(tPath, tFormat, currentPermission, 2));
+      currentPermission = gPermission;
     }
     else {
-
       char tPath[' '];
       strcpy(tPath,"");
       strcat(tPath, currentDirectory);
       strcat(tPath, argv[i]);
       printf("current permission value for the file with extension is %o\n", currentPermission); //For debug
       printf("Adding this file to the tree --> %s%s\n", tPath, currentFormat); //For debug
-      currentPermission = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
       add(currentNode, buildNode(tPath, currentFormat, currentPermission, 2));
+      currentPermission = gPermission;
     }
   }
-  // return printFileSystem(fs);
-  return 0;
+  return printFileSystem(fs);
+  //return 0;
 }
 
 
@@ -589,34 +619,7 @@ int main(int argc, const char *argv[]) {
     return -1;
   }
 
-  struct queueNode *currentNode = NULL, *tNode = NULL;
-
   int execCode = parseBuildCommand(argc, argv);
-
-  printf("\n   Start the n-ary tree traversal \n" );
-
-  TAILQ_HEAD(head_s, queueNode) head;
-  // Initialize the head before use
-  TAILQ_INIT(&head);
-  currentNode = getQueueNode(fs);
-  TAILQ_INSERT_TAIL(&head, currentNode, nextNode);
-  currentNode = NULL;
-  while (!TAILQ_EMPTY(&head)) {
-    currentNode = TAILQ_FIRST(&head);
-    printf("%s%s\n",currentNode->node->name, currentNode->node->ext );
-    printf("Number of children is  %d\n", currentNode->node->numberOfChildren);
-
-    for (int i = 0; i < currentNode->node->numberOfChildren; i++) {
-      tNode = getQueueNode(currentNode->node->next[i]);
-      TAILQ_INSERT_TAIL(&head, tNode, nextNode);
-      tNode = NULL;
-    }
-    TAILQ_REMOVE(&head, currentNode, nextNode);
-    free(currentNode);
-    currentNode = NULL;
-
-  }
-
-  printFileSystem(fs);
   return execCode;
+
 }
