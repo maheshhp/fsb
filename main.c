@@ -17,9 +17,13 @@
 #include "sys/stat.h"
 #include "sys/queue.h"
 #include "unistd.h"
+#include "time.h"
 
 static int gFileCount = 0, gTypeIsSet = 0, G_TOTAL_SUPPORTED_FORMATS = 19, gIsVerbose = 0, gInjectTemplate=0;
 static mode_t gPermission = S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH;
+
+clock_t start, end;
+double time_taken;
 
 struct fileTree{
   char name[' '];
@@ -188,7 +192,7 @@ void rollUpDirectory(char *argument){
       break;
     }
   }
-  printf("The value of the rolled up directory is %s\n",tPath );
+  // printf("The value of the rolled up directory is %s\n",tPath );
   strcpy(argument, tPath);
 }
 
@@ -252,7 +256,7 @@ mode_t getFilePermission(const char *argument){
   memmove(tPermissionString, argument + 2, strlen(argument) - 1);
   tPermission = strtol(tPermissionString, NULL, 8);
   if (tPermission > 777 || tPermission < 000) {
-    printf("Invalid permissions, setting default permission\n");
+    // printf("Invalid permissions, setting default permission\n");
     return gPermission;
   }
   return tPermission;
@@ -304,7 +308,6 @@ void separateFileNameAndFormat(const char* argument, char* fileName, char* fileF
 struct fileTree* getNode(const char *fileName, const char *fileExt){
   struct fileTree *temp;
   temp = (struct fileTree*)malloc(sizeof(struct fileTree));
-  // temp->next = NULL;
   temp->numberOfChildren = 0;
   strcpy(temp->name, fileName);
   strcpy(temp->ext, fileExt);
@@ -362,8 +365,15 @@ int createFile(const char *fileName, const char *fileExt, mode_t filePermission)
   if (getInjectStatus()) {
     writeTemplateToFile(temp, fileExt);
   }
-  printf("Changing file permission to %o\n", filePermission);
-  printf("%d\n", chmod(temp, filePermission));
+
+  // if (getVerboseStatus) {
+  //   printf("Changing file permission to %o\n", filePermission);
+  //   printf("%d\n", chmod(temp, filePermission));
+  // }
+
+  // printf("Changing file permission to %o\n", filePermission);
+  // printf("%d\n", chmod(temp, filePermission));
+  chmod(temp, filePermission);
   fp = NULL;
   return 1;
 }
@@ -387,9 +397,22 @@ int writeTemplateToFile(const char *filePath, const char *templateExt){
   asprintf(&temp, "./%s_template.txt", templateExt+1);
   tempFile = fopen(temp, "r");
   newFile = fopen(filePath, "w");
-  printf("Opening %s file and injecting the file %s.\n", filePath, temp);
+
+  // if (getVerboseStatus) {
+  //   printf("Opening %s file and injecting the file %s.\n", filePath, temp);
+  // }
+
+  // printf("Opening %s file and injecting the file %s.\n", filePath, temp);
+  if (tempFile == NULL) {
+    tempFile = fopen("./default_template.txt", "r");
+  }
   if(newFile == NULL || tempFile == NULL){
-    printf("Error Opening File!\n");
+
+    // if (getVerboseStatus) {
+    //   printf("Error Opening File!\n");
+    // }
+
+    // printf("Error Opening File!\n");
     if (tempFile != NULL) {
       fclose(tempFile);
     }
@@ -424,7 +447,12 @@ int createFileSystem(struct fileTree* node){
     }else if(currentNode->node->nodeType == 2){
       createFile(currentNode->node->name,currentNode->node->ext,currentNode->node->permission);
     }else if(currentNode->node->nodeType == -1){
-      printf("This File/Directory has some errors in it. Please review it once again\nName of the node: %s\nExtension of the Node: %s\nPermission for the node: %o\n",currentNode->node->name,currentNode->node->ext,currentNode->node->permission );
+
+      // if (getVerboseStatus) {
+      //   printf("This File/Directory has some errors in it. Please review it once again\nName of the node: %s\nExtension of the Node: %s\nPermission for the node: %o\n",currentNode->node->name,currentNode->node->ext,currentNode->node->permission );
+      // }
+
+      // printf("This File/Directory has some errors in it. Please review it once again\nName of the node: %s\nExtension of the Node: %s\nPermission for the node: %o\n",currentNode->node->name,currentNode->node->ext,currentNode->node->permission );
     }
     for (int i = 0; i < currentNode->node->numberOfChildren; i++) {
       tNode = getQueueNode(currentNode->node->next[i]);
@@ -447,7 +475,7 @@ int printFileSystem(struct fileTree* tree){
 
   struct queueNode *currentNode = NULL, *tNode = NULL;
 
-  printf("\n   Start the n-ary tree traversal \n" );
+  // printf("\n   Start the n-ary tree traversal \n" );
 
   TAILQ_HEAD(head_s, queueNode) head;
   // Initialize the head before use
@@ -457,9 +485,16 @@ int printFileSystem(struct fileTree* tree){
   currentNode = NULL;
   while (!TAILQ_EMPTY(&head)) {
     currentNode = TAILQ_FIRST(&head);
-    printf("%s%s\n",currentNode->node->name, currentNode->node->ext );
-    printf("%d\n", currentNode->node->permission);
-    printf("Number of children is  %d\n", currentNode->node->numberOfChildren);
+
+    // if (getVerboseStatus) {
+    //   printf("%s%s\n",currentNode->node->name, currentNode->node->ext );
+    //   printf("%d\n", currentNode->node->permission);
+    //   printf("Number of children is  %d\n", currentNode->node->numberOfChildren);
+    // }
+
+    // printf("%s%s\n",currentNode->node->name, currentNode->node->ext );
+    // printf("%d\n", currentNode->node->permission);
+    // printf("Number of children is  %d\n", currentNode->node->numberOfChildren);
 
     for (int i = 0; i < currentNode->node->numberOfChildren; i++) {
       tNode = getQueueNode(currentNode->node->next[i]);
@@ -474,16 +509,28 @@ int printFileSystem(struct fileTree* tree){
 
   int createFileSystemStatus = -1;
 
-  printf("Continue with file system building?(y, n)\n");
-  char userAnswer;
-  userAnswer = getchar();
-  if (userAnswer == 'y') {
-    createFileSystemStatus = createFileSystem(tree);
-  }
-  else{
-    return -1;
-  }
+  // if (getVerboseStatus) {
+  //   printf("Continue with file system building?(y, n)\n");
+  //   char userAnswer;
+  //   userAnswer = getchar();
+  //   if (userAnswer == 'y') {
+  //     createFileSystemStatus = createFileSystem(tree);
+  //   }
+  //   else{
+  //     return -1;
+  //   }
+  // }
 
+  // printf("Continue with file system building?(y, n)\n");
+  // char userAnswer;
+  // userAnswer = getchar();
+  // if (userAnswer == 'y') {
+  //   createFileSystemStatus = createFileSystem(tree);
+  // }
+  // else{
+  //   return -1;
+  // }
+  createFileSystemStatus = createFileSystem(tree);
   return createFileSystemStatus;
 
 }
@@ -506,11 +553,12 @@ int parseBuildCommand(int argc, const char *argv[]) {
   currentPermission = gPermission;
 
   for (i = 1; i < argc; i++) {
-    printf("\n\nIteration: %d | Current format: %s | Current Directory: %s\n\n", i, currentFormat, currentDirectory);
+    // printf("\n\nIteration: %d | Current format: %s | Current Directory: %s\n\n", i, currentFormat, currentDirectory);
     if (containsDoubleMinus(argv[i])) {
-      if (getVerboseStatus()) {
-        printf("\nSetting up tags like verbose, help and template injection\n" );
-      }
+
+      // if (getVerboseStatus()) {
+      //   printf("\nSetting up tags like verbose, help and template injection\n" );
+      // }
 
       if (isHelp(argv[i])) {
         printHelp(); //Printing the manual
@@ -529,40 +577,61 @@ int parseBuildCommand(int argc, const char *argv[]) {
       }
     }
     else if (containsMinus(argv[i])) {
-      if (getVerboseStatus()) {
-        printf("Resolving the file format\n");
-      }
+
+      // if (getVerboseStatus()) {
+      //   printf("Resolving the file format\n");
+      // }
+
       /* remove any exisitng extensions and set it to empty (implementation of the -d option)*/
       if (isDir(argv[i])) {
-        if (getVerboseStatus()) {
-          printf("Checking for directory and truncating the format context \n");
-        }
+
+        // if (getVerboseStatus()) {
+        //   printf("Checking for directory and truncating the format context \n");
+        // }
+
         memset(currentFormat,0,strlen(currentFormat));
         strcpy(currentFormat, ""); //Adding a directory to the tree
       }
       else if (isMultipleExtension(argv[i])) {
         getMultipleExtensionFromArgument(argv[i],currentFormat);
-        if (getVerboseStatus()) {
-          printf("The multiple extension value is %s\n", currentFormat);
-        }
+
+        // if (getVerboseStatus()) {
+        //   printf("The multiple extension value is %s\n", currentFormat);
+        // }
 
       }
       else {
         memset(currentFormat,0,strlen(currentFormat));
         strcpy(currentFormat, getExtensionFromArgument(argv[i]));
-        printf("the value of current format is %s\n", currentFormat);
-        printf("The single extension value is %s\n", currentFormat);//For debug
+
+        // if (getVerboseStatus) {
+        //   printf("the value of current format is %s\n", currentFormat);
+        //   printf("The single extension value is %s\n", currentFormat);//For debug
+        // }
+
+        // printf("the value of current format is %s\n", currentFormat);
+        // printf("The single extension value is %s\n", currentFormat);//For debug
 
       }
     }
     else if(isRollUp(argv[i])){
-      printf("Rolling up a directory because the ^ argument was given\n");
+
+      // if (getVerboseStatus) {
+      //   printf("Rolling up a directory because the ^ argument was given\n");
+      // }
+
+      // printf("Rolling up a directory because the ^ argument was given\n");
       memset(currentFormat, 0, strlen(currentFormat));
       rollUpDirectory(currentDirectory);
       currentNode = currentNode->parent;
     }
     else if(isDrillDown(argv[i])){
-      printf("Drilling down a directory because the / argument was given\n");
+
+      // if (getVerboseStatus) {
+      //   printf("Drilling down a directory because the / argument was given\n");
+      // }
+
+      // printf("Drilling down a directory because the / argument was given\n");
       memset(currentFormat, 0, strlen(currentFormat));
       strcat(currentDirectory,argv[i-1]);
       strcat(currentDirectory,"/");
@@ -574,13 +643,24 @@ int parseBuildCommand(int argc, const char *argv[]) {
       memset(tPath, 0, strlen(tPath));
       strcat(tPath, currentDirectory);
       strcat(tPath, argv[i]);
-      printf("The value of permission for the current directory is %o\n", currentPermission);
-      printf("Adding this directory to the trees --> %s\n", tPath);
+
+      // if (getVerboseStatus) {
+      //   printf("The value of permission for the current directory is %o\n", currentPermission);
+      //   printf("Adding this directory to the trees --> %s\n", tPath);
+      // }
+
+      // printf("The value of permission for the current directory is %o\n", currentPermission);
+      // printf("Adding this directory to the trees --> %s\n", tPath);
       add(currentNode, buildNode(tPath, currentFormat, currentPermission, 1));
       currentPermission = gPermission;
     }
     else if(containsFormat(argv[i])){
-      printf("Checking if the argument has a format or not\n");//For debug
+
+      // if (getVerboseStatus) {
+      //   printf("Checking if the argument has a format or not\n");//For debug
+      // }
+
+      // printf("Checking if the argument has a format or not\n");//For debug
       char tPath[' '], tFileName[' '], tFormat[' '];
       memset(tFormat, 0, strlen(tFormat));
       memset(tPath, 0, strlen(tPath));
@@ -591,8 +671,14 @@ int parseBuildCommand(int argc, const char *argv[]) {
         strcat(tFormat, currentFormat);
       }
       strcat(tPath, tFileName);
-      printf("Adding this file to the tree --> %s%s\n", tPath, tFormat);
-      printf("Current permission value for the file is %o\n", currentPermission);
+
+      // if (getVerboseStatus) {
+      //   printf("Adding this file to the tree --> %s%s\n", tPath, tFormat);
+      //   printf("Current permission value for the file is %o\n", currentPermission);
+      // }
+
+      // printf("Adding this file to the tree --> %s%s\n", tPath, tFormat);
+      // printf("Current permission value for the file is %o\n", currentPermission);
       add(currentNode, buildNode(tPath, tFormat, currentPermission, 2));
       currentPermission = gPermission;
     }
@@ -601,25 +687,42 @@ int parseBuildCommand(int argc, const char *argv[]) {
       strcpy(tPath,"");
       strcat(tPath, currentDirectory);
       strcat(tPath, argv[i]);
-      printf("current permission value for the file with extension is %o\n", currentPermission); //For debug
-      printf("Adding this file to the tree --> %s%s\n", tPath, currentFormat); //For debug
+
+      // if (getVerboseStatus) {
+      //   printf("current permission value for the file with extension is %o\n", currentPermission); //For debug
+      //   printf("Adding this file to the tree --> %s%s\n", tPath, currentFormat); //For debug
+      // }
+
+      // printf("current permission value for the file with extension is %o\n", currentPermission); //For debug
+      // printf("Adding this file to the tree --> %s%s\n", tPath, currentFormat); //For debug
       add(currentNode, buildNode(tPath, currentFormat, currentPermission, 2));
       currentPermission = gPermission;
     }
   }
   return printFileSystem(fs);
-  //return 0;
 }
 
 
 int main(int argc, const char *argv[]) {
+
+  struct timeval start, end;
+  float delta;
 
   if(argc <= 1){
     printf("\nNo Arguments !\n Refer manual for usage. (--help)\n");
     return -1;
   }
 
+  gettimeofday(&start, NULL);
+
   int execCode = parseBuildCommand(argc, argv);
+
+  gettimeofday(&end, NULL);
+
+  delta = ((end.tv_sec  - start.tv_sec) * 1000000u +
+           end.tv_usec - start.tv_usec) / 1.e6;
+  printf("Time taken : %f\n",delta);
+
   return execCode;
 
 }
