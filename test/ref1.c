@@ -95,6 +95,6 @@ void nDirectories(int ct) {
   printf("Time taken for create file w/o injection is : \n Time of day diff: %f\n Proc time diff: %f\n Function return status: %d\n",delta, time_taken, fnReturn);
 }
 int main(int argc, char const *argv[]) {
-  nDirectories(10000);
+  nDirectories(20);
   return 0;
 }
