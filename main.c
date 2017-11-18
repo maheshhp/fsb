@@ -677,6 +677,8 @@ int main(int argc, const char *argv[]) {
 
   struct timeval start, end;
   float delta;
+  clock_t t;
+  double time_taken;
 
   if(argc <= 1){
     printf("\nNo Arguments !\n Refer manual for usage. (--help)\n");
@@ -684,14 +686,17 @@ int main(int argc, const char *argv[]) {
   }
 
   gettimeofday(&start, NULL);
+  t = clock();
 
   int execCode = parseBuildCommand(argc, argv);
 
   gettimeofday(&end, NULL);
+  t = clock() - t;
 
   delta = ((end.tv_sec  - start.tv_sec) * 1000000u +
            end.tv_usec - start.tv_usec) / 1.e6;
-  printf("Time taken : %f\n",delta);
+  time_taken = ((double) t) / CLOCKS_PER_SEC;
+  printf("Proc Time: %f\nTime taken : %f\n",time_taken, delta);
 
   return execCode;
 
